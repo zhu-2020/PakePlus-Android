@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<style>
+					body {
+						background-color: white; /* Ensure the iframe has a white background */
+					}
+				</style>
+				<script>
+					var Z_CDN_WHITELIST = [
+						'cdn.jsdelivr.net',
+						'cdnjs.cloudflare.com',
+						'cdn.tailwindcss.com',
+						'unpkg.com',
+						'fonts.googleapis.com',
+						'd3js.org',
+						'cdn.babylonjs.com',
+						'html2canvas.hertzen.com',
+						'code.jquery.com',
+						'cdn.datatables.net',
+						'kit.fontawesome.com',
+						'code.createjs.com',
+						'cdn.plot.ly',
+						'fonts.gstatic.com',
+						'www.rgraph.net',
+						'api.mapbox.com',
+						'polyfill.io',
+						'cdn.quilljs.com',
+						'picsum.photos',
+						'esm.sh'
+					];
+
+					function z_isUrlInWhitelist(url) {
+						if (!url || typeof url !== 'string') {
+							return false;
+						}
+						try {
+							const urlObj = new URL(url);
+							const hostname = urlObj.hostname;
+							return Z_CDN_WHITELIST.some(domain => hostname === domain);
+						} catch (e) {
+							return false;
+						}
+					}
+
+						function z_proxyCdnUrl(url) {
+						if (!url || !url.startsWith('http')) {
+							return url;
+						}
+							if (!z_isUrlInWhitelist(url)) {
+							return url;
+						}
+						if (!url.startsWith('https://artifacts-cdn.chatglm.site/')) {
+							return 'https://artifacts-cdn.chatglm.site/' + url;
+						}
+						return url;
+					}
+					
+					// 增强版外部链接拦截 - 适合放在模板字符串中
+					document.addEventListener('click', function (ev) {
+						try {
+							const anchor = ev.target?.closest?.('a[href]') || null;
+							if (!anchor) return;
+
+							let href = anchor.getAttribute('href')?.trim() || '';
+							if (!href) return;
+
+							if (href.startsWith('javascript:')) return;
+
+							// 新需求：href="#" 的链接完全阻止跳转和任何行为
+							if (href === '#') {
+								ev.preventDefault();
+								return;
+							}
+
+							// 处理其他内部锚点（如 #about、#contact 等）
+							if (href.startsWith('#')) {
+								const rawId = href.slice(1);
+								if (!rawId) return;
+
+								const id = decodeURIComponent(rawId);
+								const target = 
+									document.getElementById(id) ||
+									document.querySelector('a[name="' + id.replace(/"/g, '\"') + '"]') ||
+									document.querySelector('[name="' + id.replace(/"/g, '\"') + '"]');
+
+								if (target && target.scrollIntoView) {
+									ev.preventDefault();
+									try {
+										history.pushState(null, '', href);
+									} catch (e) {}
+									target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+								}
+								return;
+							}
+
+							// 处理外部链接
+							let url;
+							try {
+								url = new URL(href, window.location.href);
+							} catch (e) {
+								return;
+							}
+
+							if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+							const isExternal = url.hostname !== window.location.hostname;
+
+							if (isExternal || anchor.getAttribute('target') === '_blank') {
+								ev.preventDefault();
+								window.open(url.toString(), '_blank', 'noopener,noreferrer');
+							}
+
+						} catch (e) {
+							// 出错时不阻止默认行为
+						}
+					}, true);
+
+					// 1. 暴力清除函数：从 DOM 层面抹除 onclick 属性
+					var Z_removeInlineOnclick = function () {
+						// 专门锁定 href="#" 且带有 onclick 的 a 标签
+						const targetedLinks = document.querySelectorAll('a[href="#"][onclick]');
+						for (let i = 0; i < targetedLinks.length; i++) {
+							targetedLinks[i].removeAttribute('onclick');
+							targetedLinks[i].onclick = null; // 确保 JS 层的赋值也被清理
+						}
+					};
+					// 3. 动态监测：防止页面通过异步加载重新生成带 onclick 的元素
+					var z_observer = new MutationObserver(function () {
+						Z_removeInlineOnclick();
+					});
+
+					z_observer.observe(document.documentElement, {
+						childList: true,
+						subtree: true,
+						attributes: true,
+						attributeFilter: ['onclick']
+					});
+
+					// 4. 初始化执行一次
+					Z_removeInlineOnclick();
+
+					const Z_rawCreateElement = document.createElement;
+
+					document.createElement = function (tagName, ...args) {
+						const el = Z_rawCreateElement.call(this, tagName, ...args);
+
+						if (tagName.toLowerCase() === 'script') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let srcValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'src' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									srcValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'src', {
+								get: function() {
+									return srcValue || rawGetAttribute.call(this, 'src') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										srcValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'src', srcValue);
+									} else {
+										srcValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						if (tagName.toLowerCase() === 'link') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let hrefValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'href' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									hrefValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'href', {
+								get: function() {
+									return hrefValue || rawGetAttribute.call(this, 'href') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										hrefValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'href', hrefValue);
+									} else {
+										hrefValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						return el;
+					};
+
+					const Z_OriginalXMLHttpRequest = window.XMLHttpRequest;
+					window.XMLHttpRequest = function (...args) {
+						const xhr = new Z_OriginalXMLHttpRequest(...args);
+						const rawOpen = xhr.open;
+
+						xhr.open = function (method, url, ...rest) {
+							if (typeof url === 'string') {
+								const methodUpper = (method || '').toUpperCase();
+								if (methodUpper === 'GET' && z_isUrlInWhitelist(url)) {
+									url = z_proxyCdnUrl(url);
+								}
+							}
+							return rawOpen.call(this, method, url, ...rest);
+						};
+
+						return xhr;
+					};
+
+					window.XMLHttpRequest.prototype = Z_OriginalXMLHttpRequest.prototype;
+					Object.setPrototypeOf(window.XMLHttpRequest, Z_OriginalXMLHttpRequest);
+
+					const z_originalFetch = window.fetch;
+					window.fetch = async function (...args) {
+						if (args.length > 0) {
+							let url = '';
+							let method = 'GET';
+							
+							if (typeof args[0] === 'string') {
+								url = args[0];
+								if (args[1] && args[1].method) {
+									method = args[1].method.toUpperCase();
+								}
+								if (method === 'GET' && z_isUrlInWhitelist(url)) {
+									args[0] = z_proxyCdnUrl(url);
+								}
+							} else if (args[0] instanceof Request) {
+								const originalUrl = args[0].url;
+								method = (args[0].method || 'GET').toUpperCase();
+								if (method === 'GET' && z_isUrlInWhitelist(originalUrl)) {
+									const proxiedUrl = z_proxyCdnUrl(originalUrl);
+									if (proxiedUrl !== originalUrl) {
+										args[0] = new Request(proxiedUrl, args[0]);
+									}
+								}
+							}
+						}
+						return z_originalFetch.apply(this, args);
+					};
+				</script>
+			<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-1\.5{margin-bottom:0.375rem}.mb-10{margin-bottom:2.5rem}.mb-12{margin-bottom:3rem}.mb-3{margin-bottom:0.75rem}.mb-4{margin-bottom:1rem}.mb-5{margin-bottom:1.25rem}.mb-8{margin-bottom:2rem}.ml-1{margin-left:0.25rem}.ml-2{margin-left:0.5rem}.mr-1{margin-right:0.25rem}.mt-2{margin-top:0.5rem}.mt-4{margin-top:1rem}.mt-5{margin-top:1.25rem}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-14{height:3.5rem}.h-5{height:1.25rem}.h-7{height:1.75rem}.w-14{width:3.5rem}.w-5{width:1.25rem}.w-7{width:1.75rem}.min-w-0{min-width:0px}.max-w-2xl{max-width:42rem}.max-w-5xl{max-width:64rem}.max-w-lg{max-width:32rem}.max-w-xl{max-width:36rem}.flex-1{flex:1 1 0%}.flex-shrink-0{flex-shrink:0}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-1\.5{gap:0.375rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.px-1{padding-left:0.25rem;padding-right:0.25rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-4{padding-left:1rem;padding-right:1rem}.px-8{padding-left:2rem;padding-right:2rem}.py-0\.5{padding-top:0.125rem;padding-bottom:0.125rem}.py-16{padding-top:4rem;padding-bottom:4rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-5{padding-top:1.25rem;padding-bottom:1.25rem}.pb-28{padding-bottom:7rem}.pb-6{padding-bottom:1.5rem}.pt-8{padding-top:2rem}.text-left{text-align:left}.text-center{text-align:center}.font-cartoon{font-family:Fredoka, Noto Sans SC, sans-serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-5xl{font-size:3rem;line-height:1}.text-base{font-size:1rem;line-height:1.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.leading-relaxed{line-height:1.625}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:scale-105:hover{--tw-scale-x:1.05;--tw-scale-y:1.05;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.active\:scale-95:active{--tw-scale-x:.95;--tw-scale-y:.95;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}@media (min-width: 768px){.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:text-2xl{font-size:1.5rem;line-height:2rem}.md\:text-3xl{font-size:1.875rem;line-height:2.25rem}.md\:text-7xl{font-size:4.5rem;line-height:1}}</style></head>
+			<body>
+				
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>色彩大冒险</title>
+    <script src="https://artifacts-cdn.chatglm.site/https://cdn.tailwindcss.com"></script>
+    <link href="https://artifacts-cdn.chatglm.site/https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&amp;family=Noto+Sans+SC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://artifacts-cdn.chatglm.site/https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script>
+        tailwind.config={theme:{extend:{fontFamily:{cartoon:['Fredoka','Noto Sans SC','sans-serif'],body:['Noto Sans SC','sans-serif']}}}}
+    </script>
+    <style>
+        :root{--bg:#FFF9F0;--fg:#2D2016;--muted:#9C8B7A;--accent:#FF6B4A;--card:#FFFFFF;--border:#F0E6D8;--success:#22C55E;--error:#EF4444;--yellow:#FFB800;--mint:#2DD4A8}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--fg);overflow-x:hidden;min-height:100vh}
+        .bubble{position:fixed;border-radius:50%;opacity:.1;animation:floatUp linear infinite;pointer-events:none;z-index:0}
+        @keyframes floatUp{0%{transform:translateY(100vh) rotate(0) scale(.3);opacity:0}8%{opacity:.1}85%{opacity:.1}100%{transform:translateY(-120px) rotate(360deg) scale(1);opacity:0}}
+        @keyframes bounceIn{0%{transform:scale(0);opacity:0}50%{transform:scale(1.15)}70%{transform:scale(.95)}100%{transform:scale(1);opacity:1}}
+        @keyframes bounceSoft{0%{transform:scale(.7) translateY(20px);opacity:0}60%{transform:scale(1.05) translateY(-3px)}100%{transform:scale(1) translateY(0);opacity:1}}
+        @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px) rotate(-2deg)}40%{transform:translateX(8px) rotate(2deg)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+        @keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+        @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+        @keyframes titleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        @keyframes mixPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+        @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        @keyframes confettiFall{0%{transform:translateY(-100px) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+        @keyframes starSpin{from{transform:rotate(0) scale(0)}to{transform:rotate(360deg) scale(1)}}
+        @keyframes rainbowShift{from{filter:hue-rotate(0)}to{filter:hue-rotate(360deg)}}
+        @keyframes correctPulse{0%{transform:scale(1)}40%{transform:scale(1.15)}100%{transform:scale(1.08)}}
+        .anim-bounce-in{animation:bounceIn .6s ease-out both}
+        .anim-bounce-soft{animation:bounceSoft .5s ease-out both}
+        .anim-shake{animation:shake .5s ease-out}
+        .anim-pop{animation:pop .3s ease-out}
+        .anim-slide-up{animation:slideUp .4s ease-out both}
+        .anim-wiggle{animation:wiggle .6s ease-in-out}
+        .anim-float{animation:titleFloat 3s ease-in-out infinite}
+        .mode-card{opacity:0}
+        .mode-card:nth-child(1){animation:bounceSoft .5s .1s ease-out both}
+        .mode-card:nth-child(2){animation:bounceSoft .5s .2s ease-out both}
+        .mode-card:nth-child(3){animation:bounceSoft .5s .3s ease-out both}
+        .mode-card:nth-child(4){animation:bounceSoft .5s .4s ease-out both}
+        .mode-card{background:var(--card);border-radius:24px;padding:24px 20px;cursor:pointer;transition:all .4s cubic-bezier(.34,1.56,.64,1);border:3px solid var(--border);position:relative;overflow:hidden}
+        .mode-card:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 20px 40px rgba(0,0,0,.1);border-color:transparent}
+        .mode-card:active{transform:translateY(-2px) scale(.98)}
+        .mode-card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+        .wheel-ball{transition:all .3s cubic-bezier(.34,1.56,.64,1)}
+        .wheel-ball:hover{transform:scale(1.18)!important;z-index:15!important}
+        .wheel-ball:active{transform:scale(.95)!important}
+        .wheel-ball.selected{transform:scale(1.15)!important;border-color:var(--fg)!important;box-shadow:0 0 0 3px var(--fg),0 4px 14px rgba(0,0,0,.18)!important;z-index:14!important}
+        .wheel-ball.correct-ball{border-color:var(--success)!important;box-shadow:0 0 0 3px var(--success),0 0 20px rgba(34,197,94,.35)!important;transform:scale(1.08)!important;animation:correctPulse .5s ease-out both}
+        .wheel-ball.miss-ball{border:3px dashed var(--success)!important;opacity:.65}
+        .wheel-ball.wrong-ball{border-color:var(--error)!important;box-shadow:0 0 0 3px var(--error)!important}
+        .progress-bar{height:12px;border-radius:6px;background:var(--border);overflow:hidden}
+        .progress-fill{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.34,1.56,.64,1);position:relative}
+        .progress-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 2s infinite}
+        .timer-ring{transform:rotate(-90deg)}
+        .timer-ring circle{transition:stroke-dashoffset 1s linear}
+        .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-120px);padding:12px 28px;border-radius:50px;font-weight:700;font-size:15px;z-index:300;transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+        .toast.success{background:var(--success);color:white}
+        .toast.error{background:var(--error);color:white}
+        .confetti{position:fixed;border-radius:3px;animation:confettiFall linear forwards;pointer-events:none;z-index:200}
+        .page{display:none;position:relative;z-index:1;min-height:100vh}
+        .page.active{display:block}
+        .star-rating .star{font-size:48px;color:#E8DDD0;display:inline-block;margin:0 3px}
+        .star-rating .star.filled{color:var(--yellow);filter:drop-shadow(0 2px 8px rgba(255,184,0,.5));animation:starSpin .7s ease-out forwards}
+        .knowledge-tip{background:linear-gradient(135deg,#FFFAF5,#FFF3E6);border:2px dashed var(--border);border-radius:16px;padding:14px 18px}
+        .hue-ring{width:100px;height:100px;border-radius:50%;background:conic-gradient(#EF4444,#F97316,#FB923C,#FBBF24,#EAB308,#84CC16,#22C55E,#14B8A6,#06B6D4,#3B82F6,#8B5CF6,#A855F7,#EF4444);padding:6px;animation:rainbowShift 12s linear infinite}
+        .hue-ring-inner{width:100%;height:100%;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center}
+        @media(max-width:640px){.hue-ring{width:72px;height:72px;padding:4px}}
+        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.bubble{display:none}}
+        ::-webkit-scrollbar{width:7px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    </style>
+
+
+    <div id="bubbles" aria-hidden="true"><div class="bubble" style="width: 20.8989px; height: 20.8989px; left: 64.3042%; background: rgb(234, 179, 8); animation-duration: 12.7881s; animation-delay: 7.21253s;"></div><div class="bubble" style="width: 45.244px; height: 45.244px; left: 83.9925%; background: rgb(234, 179, 8); animation-duration: 22.5145s; animation-delay: 0.861078s;"></div><div class="bubble" style="width: 35.8648px; height: 35.8648px; left: 62.9338%; background: rgb(236, 72, 153); animation-duration: 12.2147s; animation-delay: 9.71762s;"></div><div class="bubble" style="width: 56.6062px; height: 56.6062px; left: 21.206%; background: rgb(168, 85, 247); animation-duration: 19.9594s; animation-delay: 1.73429s;"></div><div class="bubble" style="width: 30.3225px; height: 30.3225px; left: 18.4007%; background: rgb(59, 130, 246); animation-duration: 15.5182s; animation-delay: 2.4856s;"></div><div class="bubble" style="width: 21.5668px; height: 21.5668px; left: 55.7366%; background: rgb(249, 115, 22); animation-duration: 17.0526s; animation-delay: 4.16537s;"></div><div class="bubble" style="width: 56.4499px; height: 56.4499px; left: 94.8139%; background: rgb(234, 179, 8); animation-duration: 15.961s; animation-delay: 9.61716s;"></div><div class="bubble" style="width: 44.9598px; height: 44.9598px; left: 78.0289%; background: rgb(249, 115, 22); animation-duration: 26.0066s; animation-delay: 1.32284s;"></div><div class="bubble" style="width: 24.9225px; height: 24.9225px; left: 59.3284%; background: rgb(34, 197, 94); animation-duration: 23.7564s; animation-delay: 0.826247s;"></div><div class="bubble" style="width: 51.1599px; height: 51.1599px; left: 56.9258%; background: rgb(6, 182, 212); animation-duration: 22.5228s; animation-delay: 8.36541s;"></div><div class="bubble" style="width: 59.1365px; height: 59.1365px; left: 3.81329%; background: rgb(34, 197, 94); animation-duration: 19.61s; animation-delay: 7.30174s;"></div><div class="bubble" style="width: 26.832px; height: 26.832px; left: 29.6668%; background: rgb(6, 182, 212); animation-duration: 13.3065s; animation-delay: 5.32433s;"></div><div class="bubble" style="width: 57.2052px; height: 57.2052px; left: 66.7043%; background: rgb(34, 197, 94); animation-duration: 25.0708s; animation-delay: 7.99172s;"></div><div class="bubble" style="width: 19.0103px; height: 19.0103px; left: 98.7688%; background: rgb(234, 179, 8); animation-duration: 23.1082s; animation-delay: 0.491304s;"></div><div class="bubble" style="width: 24.0147px; height: 24.0147px; left: 69.385%; background: rgb(249, 115, 22); animation-duration: 24.4591s; animation-delay: 7.14378s;"></div><div class="bubble" style="width: 31.3328px; height: 31.3328px; left: 32.0829%; background: rgb(234, 179, 8); animation-duration: 12.4997s; animation-delay: 4.3452s;"></div></div>
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+    <!-- 主页 -->
+    <main id="home-page" class="page active">
+        <div class="max-w-5xl mx-auto px-4 pt-8 pb-6">
+            <header class="text-center mb-12">
+                <div class="flex justify-center mb-5 anim-bounce-in">
+                    <div class="hue-ring"><div class="hue-ring-inner"><i class="fa-solid fa-palette text-2xl md:text-3xl" style="color:var(--accent);"></i></div></div>
+                </div>
+                <h1 class="font-cartoon text-5xl md:text-7xl font-bold mb-3 anim-float" style="color:var(--accent);text-shadow:4px 4px 0 #FFDAB9,8px 8px 0 rgba(255,218,185,.4);">色彩大冒险</h1>
+                <p class="text-lg font-medium anim-slide-up" style="color:var(--muted);animation-delay:.3s;">探索色彩的奥秘，成为色彩小达人</p>
+                <div class="flex justify-center gap-3 mt-5 anim-slide-up" style="animation-delay:.5s;">
+                    <div class="w-5 h-5 rounded-full anim-wiggle" style="background:#EF4444;box-shadow:0 2px 10px rgba(239,68,68,.5);animation-delay:0s;"></div>
+                    <div class="w-5 h-5 rounded-full anim-wiggle" style="background:#EAB308;box-shadow:0 2px 10px rgba(234,179,8,.5);animation-delay:.15s;"></div>
+                    <div class="w-5 h-5 rounded-full anim-wiggle" style="background:#3B82F6;box-shadow:0 2px 10px rgba(59,130,246,.5);animation-delay:.3s;"></div>
+                </div>
+            </header>
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12" aria-label="游戏模式选择">
+                <article class="mode-card" onclick="startGame(&#39;primary&#39;)" role="button" tabindex="0" aria-label="三原色混合战">
+                    <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#EF4444,#EAB308,#3B82F6);border-radius:24px 24px 0 0;"></div>
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#EF4444,#EAB308,#3B82F6);box-shadow:0 4px 12px rgba(239,68,68,.3);"><i class="fa-solid fa-droplet text-white text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h2 class="font-cartoon text-xl font-bold mb-1">三原色混合战</h2>
+                            <p class="text-sm leading-relaxed" style="color:var(--muted);">认识三原色，体验颜色混合的奇妙过程</p>
+                            <div class="flex gap-1.5 mt-2"><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#EF4444;">红</span><span class="text-xs font-bold px-1" style="color:var(--muted);">+</span><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#EAB308;">黄</span><span class="text-xs font-bold px-1" style="color:var(--muted);">=</span><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#FB923C;">橙</span></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between"><span class="text-xs font-bold" style="color:var(--muted);"><i class="fa-solid fa-layer-group mr-1"></i>4 关</span><div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,107,74,.1);"><i class="fa-solid fa-arrow-right text-xs" style="color:var(--accent);"></i></div></div>
+                </article>
+                <article class="mode-card" onclick="startGame(&#39;complementary&#39;)" role="button" tabindex="0" aria-label="互补色配对">
+                    <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#EF4444,#22C55E);border-radius:24px 24px 0 0;"></div>
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#EF4444,#22C55E);box-shadow:0 4px 12px rgba(34,197,94,.3);"><i class="fa-solid fa-link text-white text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h2 class="font-cartoon text-xl font-bold mb-1">互补色配对</h2>
+                            <p class="text-sm leading-relaxed" style="color:var(--muted);">在色环上找出180度相对的互补色</p>
+                            <div class="flex gap-1.5 mt-2 items-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#EF4444;">红</span><i class="fa-solid fa-arrows-left-right text-xs" style="color:var(--border);"></i><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#22C55E;">绿</span></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between"><span class="text-xs font-bold" style="color:var(--muted);"><i class="fa-solid fa-circle-dot mr-1"></i>4 题</span><div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,107,74,.1);"><i class="fa-solid fa-arrow-right text-xs" style="color:var(--accent);"></i></div></div>
+                </article>
+                <article class="mode-card" onclick="startGame(&#39;analogous&#39;)" role="button" tabindex="0" aria-label="邻近色小侦探">
+                    <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#F97316,#FBBF24);border-radius:24px 24px 0 0;"></div>
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#F97316,#FBBF24);box-shadow:0 4px 12px rgba(249,115,22,.3);"><i class="fa-solid fa-magnifying-glass text-white text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h2 class="font-cartoon text-xl font-bold mb-1">邻近色小侦探</h2>
+                            <p class="text-sm leading-relaxed" style="color:var(--muted);">在色环上找出与目标相邻的邻近色</p>
+                            <div class="flex gap-1 mt-2"><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#F97316;">橙</span><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#FB923C;">浅橙</span><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:#FBBF24;">黄橙</span></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between"><span class="text-xs font-bold" style="color:var(--muted);"><i class="fa-solid fa-circle-dot mr-1"></i>4 题</span><div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,107,74,.1);"><i class="fa-solid fa-arrow-right text-xs" style="color:var(--accent);"></i></div></div>
+                </article>
+                <article class="mode-card" onclick="startGame(&#39;contrast&#39;)" role="button" tabindex="0" aria-label="对比色闪电战">
+                    <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#FFB800,#FF6B4A);border-radius:24px 24px 0 0;"></div>
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#FFB800,#FF6B4A);box-shadow:0 4px 12px rgba(255,184,0,.3);"><i class="fa-solid fa-bolt text-white text-xl"></i></div>
+                        <div class="flex-1 min-w-0">
+                            <h2 class="font-cartoon text-xl font-bold mb-1">对比色闪电战</h2>
+                            <p class="text-sm leading-relaxed" style="color:var(--muted);">限时挑战，在色环上找120度对比色</p>
+                            <div class="flex gap-1.5 mt-2"><span class="px-2 py-0.5 rounded-full text-xs font-bold text-white" style="background:linear-gradient(135deg,#FFB800,#FF6B4A);">8秒/题</span></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between"><span class="text-xs font-bold" style="color:var(--muted);"><i class="fa-solid fa-circle-dot mr-1"></i>4 题</span><div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,107,74,.1);"><i class="fa-solid fa-arrow-right text-xs" style="color:var(--accent);"></i></div></div>
+                </article>
+            </section>
+            <footer class="text-center mb-10">
+                <div class="knowledge-tip inline-block text-left max-w-xl anim-slide-up mb-8" style="animation-delay:.6s;">
+                    <p class="text-sm font-bold mb-1" style="color:var(--accent);"><i class="fa-solid fa-lightbulb mr-1"></i>色彩小知识</p>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">色相环是理解色彩关系的核心工具。三原色均匀分布在环上，混合后产生的间色填充在它们之间。掌握色环上的距离关系，就能轻松理解互补色、邻近色和对比色！</p>
+                </div>
+                <p class="text-sm font-medium anim-slide-up" style="color:var(--muted);animation-delay:.8s;">邯郸幼儿师范高等专科学校 朱志鹏制作</p>
+            </footer>
+        </div>
+    </main>
+
+    <!-- 游戏页 -->
+    <section id="game-page" class="page">
+        <div class="max-w-2xl mx-auto px-4 py-5 pb-28">
+            <nav class="flex items-center justify-between mb-4">
+                <button onclick="goHome()" class="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm transition-all hover:scale-105 active:scale-95" style="background:var(--card);border:2px solid var(--border);color:var(--fg);" aria-label="返回主页"><i class="fa-solid fa-chevron-left text-xs"></i><span>返回</span></button>
+                <div class="flex items-center gap-1 px-4 py-2 rounded-full font-bold text-sm" style="background:var(--yellow);color:#7A5C00;box-shadow:0 2px 10px rgba(255,184,0,.3);"><i class="fa-solid fa-star"></i><span id="score-display" class="ml-1">0</span></div>
+            </nav>
+            <div class="text-center mb-3"><h2 id="game-title" class="font-cartoon text-xl md:text-2xl font-bold"></h2></div>
+            <div class="mb-5">
+                <div class="flex justify-between text-xs font-bold mb-1.5" style="color:var(--muted);"><span id="progress-text">第 1 / 4 题</span><span id="progress-percent">0%</span></div>
+                <div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%;background:var(--accent);"></div></div>
+            </div>
+            <div id="timer-container" class="hidden flex justify-center mb-4">
+                <div class="relative">
+                    <svg width="72" height="72" class="timer-ring"><circle cx="36" cy="36" r="30" stroke="#F0E6D8" stroke-width="6" fill="none"></circle><circle id="timer-circle" cx="36" cy="36" r="30" stroke="var(--accent)" stroke-width="6" fill="none" stroke-dasharray="188.5" stroke-dashoffset="0" stroke-linecap="round"></circle></svg>
+                    <span id="timer-text" class="absolute inset-0 flex items-center justify-center font-cartoon text-xl font-bold" style="color:var(--accent);">8</span>
+                </div>
+            </div>
+            <p id="question-text" class="text-center text-base font-bold mb-4 leading-relaxed"></p>
+            <div id="wheel-area" class="flex justify-center mb-4"></div>
+            <div id="action-area" class="text-center">
+                <button id="next-btn" onclick="nextQuestion()" class="hidden px-8 py-3 rounded-full font-bold text-white text-base transition-all hover:scale-105 active:scale-95" style="background:var(--mint);box-shadow:0 4px 14px rgba(45,212,168,.3);">下一题 <i class="fa-solid fa-arrow-right ml-2"></i></button>
+            </div>
+            <div id="knowledge-box" class="hidden knowledge-tip mt-5 text-center anim-slide-up">
+                <p class="text-sm font-bold mb-1" style="color:var(--accent);"><i class="fa-solid fa-graduation-cap mr-1"></i>知识小课堂</p>
+                <p id="knowledge-text" class="text-sm leading-relaxed" style="color:var(--muted);"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 结果页 -->
+    <section id="result-page" class="page"><div class="max-w-lg mx-auto px-4 py-16 text-center"><div id="result-content"></div></div></section>
+
+    <script>
+    const W=[
+        {name:'红',hex:'#EF4444'},{name:'橙红',hex:'#F97316'},{name:'橙',hex:'#FB923C'},
+        {name:'黄橙',hex:'#FBBF24'},{name:'黄',hex:'#EAB308'},{name:'黄绿',hex:'#84CC16'},
+        {name:'绿',hex:'#22C55E'},{name:'青绿',hex:'#14B8A6'},{name:'青',hex:'#06B6D4'},
+        {name:'蓝',hex:'#3B82F6'},{name:'蓝紫',hex:'#8B5CF6'},{name:'紫',hex:'#A855F7'}
+    ];
+
+    const PRIMARY_Q=[
+        {type:'multi',question:'找出色环上的三原色（选3个）',correct:[0,4,9],tip:'三原色（红、黄、蓝）是色彩的基础，无法由其他颜色混合得到。观察色环，它们均匀分布在三个方向，彼此相隔120度。'},
+        {type:'single',question:'红 + 黄 = ?',mixSrc:[0,4],correct:[2],tip:'红色与黄色混合产生橙色！橙色是暖色系的中间色，在色环上正好位于红和黄之间，散发着温暖活力。'},
+        {type:'single',question:'红 + 蓝 = ?',mixSrc:[0,9],correct:[11],tip:'红色与蓝色混合产生紫色！紫色是冷暖之间的神秘色彩，在色环上位于红和蓝之间，高贵而优雅。'},
+        {type:'single',question:'黄 + 蓝 = ?',mixSrc:[4,9],correct:[6],tip:'黄色与蓝色混合产生绿色！绿色是自然界中最常见的颜色，在色环上位于黄和蓝之间，清新自然。'}
+    ];
+
+    const COMPLEMENTARY_Q=[
+        {target:0,correct:[6],tip:'红色与绿色互为互补色，在色相环上相隔180度。搭配在一起对比最强烈，所以常说"红配绿"十分抢眼！'},
+        {target:4,correct:[10],tip:'黄色与蓝紫色互为互补色。黄色最明亮，蓝紫色最深沉，这种明暗对比十分戏剧化。'},
+        {target:2,correct:[8],tip:'橙色与青色互为互补色，一暖一冷形成鲜明对比，让人联想到日落与海面。'},
+        {target:5,correct:[11],tip:'黄绿色与紫色互为互补色。黄绿清新明亮，紫色神秘深沉，搭配起来非常独特。'}
+    ];
+
+    const ANALOGOUS_Q=[
+        {target:0,correct:[11,1],tip:'紫和橙红都是红色的邻近色！在色环上它们紧挨着红色的两侧，搭配在一起和谐统一，是最安全的配色组合。'},
+        {target:4,correct:[3,5],tip:'黄橙和黄绿都是黄色的邻近色！它们在色环上紧挨着黄色，构成明亮的暖色过渡带，充满阳光感。'},
+        {target:9,correct:[8,10],tip:'青和蓝紫都是蓝色的邻近色！这组冷色在色环上紧挨着蓝色，过渡自然，给人宁静深邃的感受。'},
+        {target:6,correct:[7,5],tip:'青绿和黄绿都是绿色的邻近色！这是大自然中最常见的色彩组合，清新自然，让人心旷神怡。'},
+        {target:2,correct:[1,3],tip:'橙红和黄橙都是橙色的邻近色！三者构成温暖舒适的渐变色带，像秋天的落叶一样美丽。'},
+        {target:8,correct:[7,9],tip:'青绿和蓝都是青色的邻近色！这组冷色搭配给人清爽通透的感受，像清澈的湖水。'},
+        {target:11,correct:[10,0],tip:'蓝紫和红都是紫色的邻近色！从冷到暖的过渡充满神秘优雅的氛围，常用于高级感设计。'},
+        {target:5,correct:[4,6],tip:'黄和绿都是黄绿色的邻近色！这种过渡是春天嫩叶的配色灵感，生机勃勃。'}
+    ];
+
+    const CONTRAST_Q=[
+        {target:0,correct:[8,4],tip:'红色与青色、黄色都是对比色！它们在色相环上相距约120度，搭配使用视觉冲击力强，是最经典的冷暖对比。'},
+        {target:6,correct:[10,2],tip:'绿色与蓝紫色、橙色都是对比色！冷暖与明暗双重对比，非常醒目，常用于需要吸引注意的设计。'},
+        {target:9,correct:[1,5],tip:'蓝色与橙红色、黄绿色都是对比色！冷暖反差极大，是画作和海报中常用的戏剧性配色。'},
+        {target:11,correct:[3,7],tip:'紫色与黄橙色、青绿色都是对比色！一暖一冷的搭配富有层次感和艺术气息。'}
+    ];
+
+    let currentMode='',currentQuestion=0,score=0,questions=[],selectedOptions=new Set(),isAnswered=false,timerInterval=null,timeLeft=8,currentSvg=null,wheelParams=null;
+
+    function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+    function showToast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type;requestAnimationFrame(()=>t.classList.add('show'));setTimeout(()=>t.classList.remove('show'),2000)}
+    function createConfetti(){const c=['#EF4444','#EAB308','#3B82F6','#22C55E','#A855F7','#F97316','#EC4899','#06B6D4'];for(let i=0;i<45;i++){const e=document.createElement('div');e.className='confetti';e.style.left=Math.random()*100+'vw';e.style.background=c[Math.floor(Math.random()*c.length)];e.style.width=(Math.random()*10+5)+'px';e.style.height=(Math.random()*10+5)+'px';e.style.borderRadius=Math.random()>.5?'50%':'2px';e.style.animationDuration=(Math.random()*2+1.5)+'s';e.style.animationDelay=(Math.random()*.5)+'s';document.body.appendChild(e);setTimeout(()=>e.remove(),4000)}}
+    function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo({top:0,behavior:'smooth'})}
+    function goHome(){clearInterval(timerInterval);showPage('home-page')}
+    function getCorrectAll(q){return Array.isArray(q.correct)?[...q.correct]:[q.correct]}
+
+    function getWP(){
+        const m=window.innerWidth<640;
+        const sz=m?280:350,bs=m?44:54,fs=m?10:12,r=sz/2-bs/2-10;
+        return{size:sz,ballSize:bs,fontSize:fs,radius:Math.max(60,r),center:sz/2};
+    }
+
+    function ballPos(i,total,radius,cx,cy){
+        const a=(i/total)*2*Math.PI-Math.PI/2;
+        return{x:cx+radius*Math.cos(a),y:cy+radius*Math.sin(a)};
+    }
+
+    function renderWheelQuestion(q,mode){
+        const p=getWP();wheelParams=p;
+        const area=document.getElementById('wheel-area');
+        area.innerHTML='';currentSvg=null;
+        const wrap=document.createElement('div');
+        wrap.style.cssText=`position:relative;width:${p.size}px;height:${p.size}px;margin:0 auto;`;
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        svg.setAttribute('width',p.size);svg.setAttribute('height',p.size);
+        svg.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:10;';
+        wrap.appendChild(svg);currentSvg=svg;
+        const ring=document.createElement('div');
+        ring.style.cssText='position:absolute;inset:0;border-radius:50%;background:conic-gradient(#EF4444,#F97316,#FB923C,#FBBF24,#EAB308,#84CC16,#22C55E,#14B8A6,#06B6D4,#3B82F6,#8B5CF6,#A855F7,#EF4444);padding:5px;opacity:.25;';
+        const ri=document.createElement('div');ri.style.cssText='width:100%;height:100%;border-radius:50%;background:var(--bg);';ring.appendChild(ri);
+        wrap.appendChild(ring);
+        const ctr=document.createElement('div');
+        const cSz=p.size*.42;
+        ctr.id='wheel-center';
+        ctr.style.cssText=`position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${cSz}px;height:${cSz}px;border-radius:50%;background:var(--card);border:3px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.06);z-index:5;padding:6px;`;
+        wrap.appendChild(ctr);
+        W.forEach((color,i)=>{
+            const pos=ballPos(i,12,p.radius,p.center,p.center);
+            const ball=document.createElement('div');
+            ball.className='wheel-ball';ball.dataset.index=i;
+            ball.setAttribute('role','button');ball.setAttribute('tabindex','0');
+            ball.setAttribute('aria-label',color.name+'色');
+            ball.style.cssText=`position:absolute;width:${p.ballSize}px;height:${p.ballSize}px;left:${pos.x-p.ballSize/2}px;top:${pos.y-p.ballSize/2}px;background:${color.hex};border-radius:50%;border:3px solid white;cursor:pointer;z-index:8;box-shadow:0 3px 12px rgba(0,0,0,.15),inset 0 -3px 8px rgba(0,0,0,.08),inset 0 3px 8px rgba(255,255,255,.3);animation:bounceSoft .4s ${i*.04}s ease-out both;`;
+            const hl=document.createElement('div');
+            hl.style.cssText='position:absolute;top:14%;left:18%;width:30%;height:22%;background:radial-gradient(ellipse,rgba(255,255,255,.6),transparent);border-radius:50%;pointer-events:none;';
+            ball.appendChild(hl);
+            const lb=document.createElement('span');
+            lb.style.cssText=`position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:${p.fontSize}px;font-weight:700;color:var(--muted);white-space:nowrap;pointer-events:none;`;
+            lb.textContent=color.name;ball.appendChild(lb);
+            ball.addEventListener('click',()=>handleWheelClick(i,ball));
+            ball.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();handleWheelClick(i,ball)}});
+            wrap.appendChild(ball);
+        });
+        area.appendChild(wrap);
+        fillCenter(ctr,q,mode,p);
+    }
+
+    function fillCenter(ctr,q,mode,p){
+        const bs=p.ballSize*.5;
+        if(mode==='primary'){
+            if(q.type==='multi'){
+                ctr.innerHTML='<i class="fa-solid fa-hand-pointer text-xl mb-1" style="color:var(--accent);"></i><span class="font-bold text-xs" style="color:var(--fg);">选出3个</span>';
+            }else{
+                const c1=W[q.mixSrc[0]],c2=W[q.mixSrc[1]];
+                ctr.innerHTML=`<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><div style="width:${bs}px;height:${bs}px;border-radius:50%;background:${c1.hex};border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,.15);animation:mixPulse 2s infinite;"></div><span class="font-cartoon font-bold text-base" style="color:var(--muted);">+</span><div style="width:${bs}px;height:${bs}px;border-radius:50%;background:${c2.hex};border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,.15);animation:mixPulse 2s .4s infinite;"></div></div><div style="width:1.5px;height:6px;background:var(--border);margin:0 auto;"></div><div style="width:${bs}px;height:${bs}px;border-radius:50%;background:var(--border);border:2px dashed var(--muted);display:flex;align-items:center;justify-content:center;"><span class="font-cartoon font-bold" style="color:var(--muted);font-size:${bs*.45}px;">?</span></div>`;
+            }
+        }else{
+            const t=W[q.target];
+            ctr.innerHTML=`<div style="width:${bs*1.3}px;height:${bs*1.3}px;border-radius:50%;background:${t.hex};border:3px solid white;box-shadow:0 3px 12px rgba(0,0,0,.2),inset 0 -3px 8px rgba(0,0,0,.1),inset 0 3px 8px rgba(255,255,255,.3);margin-bottom:2px;"></div><span class="font-bold" style="color:var(--muted);font-size:${p.fontSize-1}px;">${t.name}</span>`;
+        }
+    }
+
+    function handleWheelClick(idx,ball){
+        if(isAnswered)return;
+        const q=questions[currentQuestion];
+        if(q.type==='multi'){
+            if(selectedOptions.has(idx)){selectedOptions.delete(idx);ball.classList.remove('selected')}
+            else{if(selectedOptions.size>=3)return;selectedOptions.add(idx);ball.classList.add('selected','anim-pop');setTimeout(()=>ball.classList.remove('anim-pop'),300)}
+            if(selectedOptions.size===3)setTimeout(confirmAnswer,300);
+        }else{
+            document.querySelectorAll('.wheel-ball').forEach(b=>b.classList.remove('selected'));
+            selectedOptions.clear();selectedOptions.add(idx);
+            ball.classList.add('selected','anim-pop');
+            setTimeout(()=>ball.classList.remove('anim-pop'),300);
+            setTimeout(confirmAnswer,300);
+        }
+    }
+
+    function confirmAnswer(){
+        if(isAnswered)return;isAnswered=true;clearInterval(timerInterval);
+        const q=questions[currentQuestion];
+        const correctAll=getCorrectAll(q);
+        const correctSet=new Set(correctAll);
+        let isCorrect;
+        if(q.type==='multi'){
+            isCorrect=correctAll.length===selectedOptions.size&&correctAll.every(c=>selectedOptions.has(c));
+        }else{
+            isCorrect=correctSet.has([...selectedOptions][0]);
+        }
+        document.querySelectorAll('.wheel-ball').forEach(ball=>{
+            const idx=parseInt(ball.dataset.index);
+            ball.style.cursor='default';ball.style.pointerEvents='none';
+            ball.classList.remove('selected');
+            if(correctSet.has(idx)){
+                ball.classList.add('correct-ball');
+            }else if(selectedOptions.has(idx)){
+                ball.classList.add('wrong-ball','anim-shake');
+            }
+            if(q.type==='multi'&&correctSet.has(idx)&&!selectedOptions.has(idx)){
+                ball.classList.remove('correct-ball');ball.classList.add('miss-ball');
+            }
+        });
+        drawConnections(q,currentMode);
+        if(isCorrect){score+=25;document.getElementById('score-display').textContent=score;showToast('回答正确！+25分','success');createConfetti()}
+        else showToast('再想想哦～','error');
+        document.getElementById('knowledge-text').textContent=q.tip;
+        const kb=document.getElementById('knowledge-box');kb.classList.remove('hidden');kb.classList.add('anim-slide-up');
+        document.getElementById('next-btn').classList.remove('hidden');
+        const np=((currentQuestion+1)/questions.length)*100;
+        document.getElementById('progress-fill').style.width=np+'%';
+        document.getElementById('progress-percent').textContent=Math.round(np)+'%';
+    }
+
+    function drawLine(i1,i2,color,dash){
+        if(!currentSvg||!wheelParams)return;
+        const p1=ballPos(i1,12,wheelParams.radius,wheelParams.center,wheelParams.center);
+        const p2=ballPos(i2,12,wheelParams.radius,wheelParams.center,wheelParams.center);
+        const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+        l.setAttribute('x1',p1.x);l.setAttribute('y1',p1.y);l.setAttribute('x2',p2.x);l.setAttribute('y2',p2.y);
+        l.setAttribute('stroke',color);l.setAttribute('stroke-width','3');l.setAttribute('stroke-dasharray',dash);l.setAttribute('stroke-linecap','round');l.setAttribute('opacity','0');
+        l.style.transition='opacity .6s';currentSvg.appendChild(l);
+        requestAnimationFrame(()=>l.setAttribute('opacity','0.7'));
+    }
+
+    function drawConnections(q,mode){
+        const ca=getCorrectAll(q);
+        if(mode==='primary'){
+            if(q.type==='multi'){
+                for(let i=0;i<ca.length;i++)for(let j=i+1;j<ca.length;j++)drawLine(ca[i],ca[j],'#22C55E','8,4');
+            }else{
+                drawLine(q.mixSrc[0],ca[0],W[q.mixSrc[0]].hex,'6,4');
+                drawLine(q.mixSrc[1],ca[0],W[q.mixSrc[1]].hex,'6,4');
+            }
+        }else if(mode==='complementary'){
+            drawLine(q.target,ca[0],'#EF4444','8,4');
+        }else if(mode==='analogous'){
+            /* 邻近色不画连线，仅靠绿色描边展示 */
+        }else if(mode==='contrast'){
+            ca.forEach(c=>drawLine(q.target,c,'#F97316','6,6'));
+        }
+    }
+
+    function startGame(mode){
+        currentMode=mode;currentQuestion=0;score=0;selectedOptions=new Set();isAnswered=false;clearInterval(timerInterval);
+        switch(mode){
+            case'primary':questions=[...PRIMARY_Q];break;
+            case'complementary':questions=shuffle([...COMPLEMENTARY_Q]);break;
+            case'analogous':questions=shuffle([...ANALOGOUS_Q]).slice(0,4);break;
+            case'contrast':questions=shuffle([...CONTRAST_Q]);break;
+        }
+        const titles={primary:'三原色混合战',complementary:'互补色配对',analogous:'邻近色小侦探',contrast:'对比色闪电战'};
+        const barBg={primary:'linear-gradient(90deg,#EF4444,#EAB308,#3B82F6)',complementary:'linear-gradient(90deg,#EF4444,#22C55E)',analogous:'linear-gradient(90deg,#F97316,#FBBF24)',contrast:'linear-gradient(90deg,#FFB800,#FF6B4A)'};
+        document.getElementById('game-title').textContent=titles[mode];
+        document.getElementById('timer-container').classList.toggle('hidden',mode!=='contrast');
+        document.getElementById('score-display').textContent='0';
+        document.getElementById('progress-fill').style.background=barBg[mode];
+        document.getElementById('progress-fill').style.width='0%';
+        document.getElementById('progress-percent').textContent='0%';
+        showPage('game-page');renderQuestion();
+    }
+
+    function renderQuestion(){
+        if(currentQuestion>=questions.length){showResult();return}
+        isAnswered=false;selectedOptions=new Set();clearInterval(timerInterval);
+        const q=questions[currentQuestion];
+        document.getElementById('progress-text').textContent=`第 ${currentQuestion+1} / ${questions.length} 题`;
+        document.getElementById('next-btn').classList.add('hidden');
+        document.getElementById('knowledge-box').classList.add('hidden');
+        const tc=document.getElementById('timer-circle'),tt=document.getElementById('timer-text');
+        tc.style.stroke='var(--accent)';tc.style.strokeDashoffset='0';tt.style.color='var(--accent)';tt.textContent='8';
+        let qText=q.question;
+        if(currentMode==='complementary') qText=`找出 <strong style="color:${W[q.target].hex}">${W[q.target].name}</strong> 的互补色`;
+        else if(currentMode==='analogous') qText=`找出 <strong style="color:${W[q.target].hex}">${W[q.target].name}</strong> 的一个邻近色`;
+        else if(currentMode==='contrast') qText=`快速找出 <strong style="color:${W[q.target].hex}">${W[q.target].name}</strong> 的对比色`;
+        document.getElementById('question-text').innerHTML=qText;
+        renderWheelQuestion(q,currentMode);
+        if(currentMode==='contrast')startTimer();
+    }
+
+    function nextQuestion(){currentQuestion++;renderQuestion()}
+
+    function startTimer(){
+        timeLeft=8;
+        const circ=document.getElementById('timer-circle'),txt=document.getElementById('timer-text');
+        const C=2*Math.PI*30;circ.style.strokeDasharray=C;circ.style.strokeDashoffset='0';circ.style.stroke='var(--accent)';txt.style.color='var(--accent)';txt.textContent=timeLeft;
+        timerInterval=setInterval(()=>{
+            timeLeft--;txt.textContent=Math.max(0,timeLeft);
+            circ.style.strokeDashoffset=C*(1-timeLeft/8);
+            if(timeLeft<=2){circ.style.stroke='var(--error)';txt.style.color='var(--error)'}
+            else if(timeLeft<=4){circ.style.stroke='var(--yellow)';txt.style.color='var(--yellow)'}
+            if(timeLeft<=0){
+                clearInterval(timerInterval);
+                if(!isAnswered){
+                    isAnswered=true;showToast('时间到！','error');
+                    const q=questions[currentQuestion];
+                    const ca=getCorrectAll(q);const cs=new Set(ca);
+                    document.querySelectorAll('.wheel-ball').forEach(b=>{
+                        const idx=parseInt(b.dataset.index);
+                        b.style.cursor='default';b.style.pointerEvents='none';b.classList.remove('selected');
+                        if(cs.has(idx))b.classList.add('correct-ball');
+                    });
+                    drawConnections(q,currentMode);
+                    document.getElementById('knowledge-text').textContent=q.tip;
+                    const kb=document.getElementById('knowledge-box');kb.classList.remove('hidden');kb.classList.add('anim-slide-up');
+                    document.getElementById('next-btn').classList.remove('hidden');
+                    const np=((currentQuestion+1)/questions.length)*100;
+                    document.getElementById('progress-fill').style.width=np+'%';
+                    document.getElementById('progress-percent').textContent=Math.round(np)+'%';
+                }
+            }
+        },1000);
+    }
+
+    function showResult(){
+        clearInterval(timerInterval);showPage('result-page');
+        const maxS=questions.length*25,pct=score/maxS;
+        const stars=pct>=.88?3:pct>=.5?2:pct>=.13?1:0;
+        const names={primary:'三原色混合战',complementary:'互补色配对',analogous:'邻近色小侦探',contrast:'对比色闪电战'};
+        const msgs=['别灰心，色彩世界等你来探索！','有进步，继续加油！','很棒，你已经是色彩小能手了！','太厉害了，你是真正的色彩大师！'];
+        let sh='';for(let i=0;i<3;i++) sh+=i<stars?`<span class="star filled" style="animation-delay:${i*.35}s;"><i class="fa-solid fa-star"></i></span>`:`<span class="star"><i class="fa-solid fa-star"></i></span>`;
+        document.getElementById('result-content').innerHTML=`
+            <div class="anim-bounce-in">
+                <div class="w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center" style="background:linear-gradient(135deg,var(--accent),var(--yellow));box-shadow:0 10px 40px rgba(255,107,74,.35);"><i class="fa-solid fa-trophy text-white text-4xl"></i></div>
+                <h2 class="font-cartoon text-2xl md:text-3xl font-bold mb-2">${names[currentMode]}</h2>
+                <p class="text-sm mb-6" style="color:var(--muted);">挑战完成</p>
+                <div class="star-rating mb-6">${sh}</div>
+                <div class="inline-block px-8 py-4 rounded-3xl mb-4" style="background:var(--card);border:3px solid var(--border);box-shadow:0 8px 30px rgba(0,0,0,.06);">
+                    <div class="font-cartoon text-5xl font-bold" style="color:var(--accent);">${score}</div>
+                    <div class="text-sm font-bold mt-1" style="color:var(--muted);">/ ${maxS} 分</div>
+                </div>
+                <p class="text-lg font-bold mb-8">${msgs[stars]}</p>
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button onclick="startGame('${currentMode}')" class="px-7 py-3 rounded-full font-bold text-white text-base transition-all hover:scale-105 active:scale-95" style="background:var(--accent);box-shadow:0 4px 14px rgba(255,107,74,.3);"><i class="fa-solid fa-rotate-right mr-2"></i>再玩一次</button>
+                    <button onclick="goHome()" class="px-7 py-3 rounded-full font-bold text-base transition-all hover:scale-105 active:scale-95" style="background:var(--card);border:2px solid var(--border);color:var(--fg);"><i class="fa-solid fa-house mr-2"></i>返回主页</button>
+                </div>
+            </div>`;
+        if(stars>=2)createConfetti();
+    }
+
+    function createBubbles(){
+        const c=document.getElementById('bubbles');
+        const colors=['#EF4444','#EAB308','#3B82F6','#22C55E','#A855F7','#F97316','#EC4899','#06B6D4'];
+        for(let i=0;i<16;i++){const b=document.createElement('div');b.className='bubble';const s=Math.random()*45+15;b.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${Math.random()*16+12}s;animation-delay:${Math.random()*10}s;`;c.appendChild(b)}
+    }
+
+    document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.classList.contains('mode-card'))document.activeElement.click()});
+    let resizeTimer;
+    window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(document.getElementById('game-page').classList.contains('active')&&!isAnswered)renderQuestion()},300)});
+    createBubbles();
+    </script>
+
+
+			
+		
+</body></html>
